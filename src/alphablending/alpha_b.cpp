@@ -1,7 +1,3 @@
-#include <new>
-
-//===============================================
-
 #include "alpha_b.h"
 #include "../general/general.h"
 
@@ -15,9 +11,6 @@ int _overlay_pict(const char* backg_pict,  const char* patch_pict, const char* r
     FILENAME_CHECK(backg_pict);
     FILENAME_CHECK(patch_pict);
     FILENAME_CHECK(reslt_name);
-
-    //printf("backg name %s x %u y %u \n", backg_pict, backg_size.x, backg_size.y);
-    //printf("patch name %s x %u y %u \n", patch_pict, patch_size.x, patch_size.y);
 
     int is_loaded = 0;
     sf::Image backg;
@@ -34,17 +27,21 @@ int _overlay_pict(const char* backg_pict,  const char* patch_pict, const char* r
     if (!patch_norm)
         return -1;
 
-    unsigned char* reslt_data = overlay_eval(&backg, patch_norm);
+    sf::Clock clock;
+    unsigned char* reslt_data = 0;
 
-    sf::Vector2u backg_size_vector = backg.getSize();
+    for (int eval_counter = 0; eval_counter < Evaluations_number; eval_counter++)
+    {
+        reslt_data = overlay_eval(&backg, patch_norm);
+        if (!reslt_data)
+            return -1;
+    }
 
-    sf::Image reslt;
-    reslt.create(backg_size_vector.x, backg_size_vector.y, reslt_data); 
-    reslt.saveToFile(reslt_name);
+    float time_passed = clock.getElapsedTime().asSeconds();
 
-    int return_value = show_reslt_in_window(&reslt);
-    if (return_value == -1)
-        return -1;
+    printf("\n passed time %f \n", time_passed);
+
+    save_and_show_result(backg.getSize(), reslt_data, reslt_name, time_passed);
 
     free(reslt_data);
     free((void*) patch_norm);
@@ -54,7 +51,29 @@ int _overlay_pict(const char* backg_pict,  const char* patch_pict, const char* r
 
 //===============================================
 
-const unsigned char* _normalize_patch_pict(sf::Image backg, sf::Image patch, const int x_pos, const int y_pos FOR_LOGS(,LOG_PARAMS))
+int _save_and_show_result(sf::Vector2u size_vector, unsigned char* reslt_data, 
+                          const char* reslt_name, float time FOR_LOGS(,LOG_PARAMS))
+{
+    alpha_b_log_report();
+
+    assert(reslt_data);
+    assert(reslt_name);
+
+    sf::Image reslt;
+    reslt.create(size_vector.x, size_vector.y, reslt_data);
+    reslt.saveToFile(reslt_name);
+
+    int return_value = show_reslt_in_window(&reslt, time);
+    if (return_value == -1)
+        return -1;
+
+    return 0;
+}
+
+//===============================================
+
+const unsigned char* _normalize_patch_pict(sf::Image backg, sf::Image patch, 
+                                           const int x_pos, const int y_pos FOR_LOGS(,LOG_PARAMS))
 {
     alpha_b_log_report();
 
@@ -110,7 +129,7 @@ const unsigned char* _normalize_patch_pict(sf::Image backg, sf::Image patch, con
 
 //===============================================
 
-int _show_reslt_in_window(sf::Image* reslt FOR_LOGS(, LOG_PARAMS))
+int _show_reslt_in_window(sf::Image* reslt, float time FOR_LOGS(, LOG_PARAMS))
 {
     alpha_b_log_report();
     assert(reslt);
@@ -135,10 +154,58 @@ int _show_reslt_in_window(sf::Image* reslt FOR_LOGS(, LOG_PARAMS))
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+
+            if (event.type == sf::Event::KeyPressed)
+            {
+                if (event.key.code == sf::Keyboard::T)
+                {
+                    show_passed_time(time);
+                }
+            }
         }
 
         window.clear();
         window.draw(sprite);
+        window.display();
+    }
+
+    return 0;
+}
+
+//===============================================
+
+int _show_passed_time(float time FOR_LOGS(, LOG_PARAMS))
+{
+    alpha_b_log_report();
+
+    sf::Font font;
+    font.loadFromFile(Font_name);
+
+    sf::Text passed_time_text;
+
+    passed_time_text.setFont(font);
+    passed_time_text.setFillColor(Text_color);
+    passed_time_text.setCharacterSize(CharacterSize);
+
+    char text_buf[Text_buf_size] = { 0 };
+    sprintf(text_buf, "NUMBER OF CYCLES: %d\nTIME: %f", Evaluations_number, time);
+    passed_time_text.setString(text_buf);
+
+    sf::RenderWindow window(sf::VideoMode(Time_wndw_width, Time_wndw_height), "INFO");
+
+    while(window.isOpen())
+    {
+        sf::Event event;
+        while(window.pollEvent(event))
+        {
+            if (event.type = sf::Event::Closed)
+            {
+                window.close();
+            }
+        }
+
+        window.clear();
+        window.draw(passed_time_text);
         window.display();
     }
 
@@ -157,44 +224,8 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
     sf::Vector2u backg_size_vector = (*backg).getSize();
     int backg_size = backg_size_vector.x * backg_size_vector.y;
 
-
-    #ifdef DEBUG
-    //
-        printf("\n backg_size %d \n", backg_size);
-    //
-    #endif 
-
     const sf::Uint8* backg_data = (*backg).getPixelsPtr();
 
-    //
-    #ifdef DEBUG 
-
-        FILE* bckg_file = fopen("bckg.txt", "w");
-        for (int ct = 1; ct <= backg_size * 4; ct++)
-        {
-            fprintf(bckg_file, "%02x ", backg_data[ct]);
-            if ((ct % 64) == 0)
-                fprintf(bckg_file, "\n");
-            fflush(stdout);
-        }
-        fclose(bckg_file);
-        //
-
-        //
-        FILE* ptch_file = fopen("ptch.txt", "w");
-        for (int ct = 1; ct <= backg_size * 4; ct++)
-        {
-            fprintf(ptch_file, "%02x ", patch_data[ct]);
-            if ((ct % 64) == 0)
-                fprintf(ptch_file, "\n");
-            fflush(stdout);
-        }
-        fclose(ptch_file);
-        //
-
-    #endif 
-
-    //unsigned char* reslt_data = new (std::align_val_t(16)) unsigned char[backg_size * 4];
     unsigned char* reslt_data = (unsigned char*) aligned_alloc(16, backg_size * 4);
     if (!reslt_data)
     {
@@ -202,30 +233,10 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
         return NULL;;
     }
 
-    //
-    #ifdef DEBUG 
-        printf("\n reslt_data %p \n", reslt_data);
-    #endif 
-    //
-    //
-
     int x_size = backg_size_vector.x;
     int y_size = backg_size_vector.y;
 
-    //
-    #ifdef DEBUG
-        printf("\n bckg x %d y %d \n", x_size, y_size);
-    #endif 
-    //
-
-    #ifdef DEBUG
-        FILE* evals = fopen("evals.txt", "w");
-    #endif
-
     #ifdef OPT 
-
-        printf("\n я не упал до альфа блендера \n");
-        fflush(stdout);
 
         const __m128i vector_char_00    = _mm_set1_epi8 (0);
         const __m128i vector_short_00FF = _mm_set1_epi16(0x00FF);
@@ -248,35 +259,6 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
                 //         15 14 13 12   11 10  9  8    7  6  5  4    3  2  1  0
                 // ptch = [a3 r3 g3 b3 | a2 r2 g2 b2 | a1 r1 g1 b1 | a0 r0 g0 b0]
                 //-----------------------------------------------------------------------
-
-                //int offst = 4 * ( x + y * x_size );
-
-                //
-                #ifdef DEBUG 
-                    fprintf(evals, "\n cur x: %d cyr y: %d \n", x, y);
-
-                    fprintf(evals, "\n ptch: ");
-                    for (int i = 1; i <= 16; i++)
-                    {
-                        fprintf(evals, "%02x", patch_data[offst + i - 1]);
-                        if ((i % 4) == 0)
-                            fprintf(evals, " ");
-                    }
-                    fprintf(evals, "\n");
-                    
-
-                    fprintf(evals, "\n bckg: ");
-                    for (int i = 1; i <= 16; i++)
-                    {
-                        fprintf(evals, "%02x", backg_data[offst + i - 1]);
-                        if ((i % 4) == 0)
-                            fprintf(evals, " ");
-                    }
-                    fprintf(evals, "\n");
-                #endif 
-                //
-
-                //printf("\n ptch_offst %d bckg_offst %d \n", ptch_offst, bckg_offst);
                 
                 __m128i ptch = _mm_loadu_si128 ( (__m128i*) ( &patch_data[offst] ) );
                 __m128i bckg = _mm_loadu_si128 ( (__m128i*) ( &backg_data[offst] ) );
@@ -317,68 +299,6 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
                 PTCH = _mm_cvtepu8_epi16 ( PTCH );
                 BCKG = _mm_cvtepu8_epi16 ( BCKG );
 
-                //
-                //
-                //
-                #ifdef DEBUG 
-
-                    alignas(16) unsigned char char_array[16] = { 0 };
-                    _mm_store_si128 ( (__m128i*) ( char_array ), ptch);
-
-                    fprintf(evals, "\n ptch: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), PTCH);
-
-                    fprintf(evals, "\n PTCH: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), bckg);
-
-                    fprintf(evals, "\n bckg: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), BCKG);
-
-                    //----------
-
-                    fprintf(evals, "\n BCKG: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                #endif 
-
-                //
-                //
-                //
-
                 // Sshuffle bytes as in picture 
 
                 //-----------------------------------------------------------------------
@@ -408,47 +328,6 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
 
                 __m128i ptch_a = _mm_shuffle_epi8 ( ptch, movemask ); 
                 __m128i PTCH_A = _mm_shuffle_epi8 ( PTCH, movemask );
-                //__m128i bckg_a = _mm_shuffle_epi8 ( bckg, movemask );
-                //__m128i BCKG_A = _mm_shuffle_epi8 ( BCKG, movemask );
-
-                //
-                //
-                //
-
-                //alignas(16) char char_array[16] = { 0 };
-                #ifdef DEBUG 
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), ptch_a);
-
-                    fprintf(evals, "\n ptch_a: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), PTCH_A);
-
-                    fprintf(evals, "\n PTCH_A: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-                #endif 
-
-                //----------
-
-                //
-                //
-                //
-
                 // mul values of ARGB for each pixel of patch picture
                 // by value of A in ARGB for this pixel
 
@@ -460,112 +339,11 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
                 bckg = _mm_mullo_epi16 ( bckg, _mm_sub_epi16 ( vector_short_00FF, ptch_a ) );
                 BCKG = _mm_mullo_epi16 ( BCKG, _mm_sub_epi16 ( vector_short_00FF, PTCH_A ) );
 
-
-                //
-                //
-                //
-
-                //alignas(16) char char_array[16] = { 0 };
-                #ifdef DEBUG 
-                    _mm_store_si128 ( (__m128i*) ( char_array ), ptch);
-
-                    fprintf(evals, "\n ptch * TF: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), PTCH);
-
-                    fprintf(evals, "\n PTCH * TF: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), bckg);
-
-                    fprintf(evals, "\n bckg * TB: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), BCKG);
-
-                    //----------
-
-                    fprintf(evals, "\n BCKG * TB: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-                #endif 
-
-                //
-                //
-                //
-
                 // sum - sum of multiplied values of 0 and 1 pixels
                 // SUM - sum of multiplied values of 2 and 3 pixels
 
                 __m128i sum  = _mm_add_epi16 ( ptch, bckg );
                 __m128i SUM  = _mm_add_epi16 ( PTCH, BCKG );
-
-
-                //
-                //
-                //
-
-                //alignas(16) char char_array[16] = { 0 };
-                #ifdef DEBUG 
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), sum);
-
-                    fprintf(evals, "\n sum: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), SUM);
-
-                    fprintf(evals, "\n SUM: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-                #endif 
-
-                //----------
-
-                //
-                //
-                //
 
                 //Pack values in lower 64 bits as in graph 
 
@@ -595,40 +373,6 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
                 sum = _mm_shuffle_epi8 ( sum, packmask );
                 SUM = _mm_shuffle_epi8 ( SUM, packmask );
 
-                //
-                //
-                //
-
-                //alignas(16) char char_array[16] = { 0 };
-                #ifdef DEBUG 
-                    _mm_store_si128 ( (__m128i*) ( char_array ), sum);
-
-                    fprintf(evals, "\n sum after shuffle: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-
-                    //----------
-
-                    _mm_store_si128 ( (__m128i*) ( char_array ), SUM);
-
-                    fprintf(evals, "\n SUM after shuffle: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", char_array[ct]);
-                    }
-
-                    fprintf(evals, "\n");
-                #endif 
-
-                //
-                //
-
                 //Move values from two vectors - sum and SUM - into one
 
                 //-----------------------------------------------------------------------
@@ -646,65 +390,36 @@ unsigned char* _overlay_eval(sf::Image* backg, const unsigned char* patch_data F
 
                 //Store in array reslt
 
-                //printf("\n i'm alive before store  x %d y %d  bckg_offst %d \n", x, y, bckg_offst);
-                //fflush(stdout);
-
                 _mm_store_si128 ( (__m128i*) ( &reslt_data[offst] ), colors );
-
-                //
-                #ifdef DEBUG 
-
-                    alignas(16) int arr_colors[16] = { 0 };
-                    _mm_store_si128 ( (__m128i*) ( arr_colors), colors);
-
-                    fprintf(evals, "\n colors: ");
-
-                    for (int ct = 0; ct < 16; ct++)
-                    {
-                        fprintf(evals, "%02x ", arr_colors[ct]);
-                    }
-
-                    fprintf(evals, "\n \n \n \n \n ");
-
-                #endif 
-                //
-
-                //printf("\n i'm alive after store  x %d y %d \n", x, y);
-                //fflush(stdout);
             }
         }
-
-    //
-    #ifdef DEBUG 
-
-        FILE* temp= fopen("reslt.txt", "w");
-
-        for (int ct = 1; ct <= backg_size * 4; ct++)
-        {
-            fprintf(temp, "%02x ", reslt_data[ct]);
-            if ((ct % 64) == 0)
-                fprintf(temp, "\n");
-            fflush(stdout);
-        }
-
-        fclose(temp);
-        fclose(evals);
-
-    #endif 
-    //
 
     //===============================================================
 
     #else 
 
-    for (int y = 0; y < y_size; y++)
-    {
-        for (int x = 0; x < x_size; x++)
-        {
-            
-        }
-    }
+        Color pthc_argb = { 0 };
+        Color bckg_argb = { 0 };
 
+        for (int y = 0; y < y_size; y++)
+        {
+            int x = 0;
+            int offset = 4 * (x + y * x_size);
+
+            for (; x < x_size; x++, offset += 4)
+            {
+                pthc_argb.value = *( (unsigned int*) &patch_data[offset] ); 
+                bckg_argb.value = *( (unsigned int*) &backg_data[offset] );
+
+                unsigned char ptch_a = pthc_argb.argb[0];
+
+                reslt_data[offset + 0] = ( pthc_argb.argb[3] * ptch_a + bckg_argb.argb[3] * (255 - ptch_a) ) >> 8;
+                reslt_data[offset + 1] = ( pthc_argb.argb[2] * ptch_a + bckg_argb.argb[2] * (255 - ptch_a) ) >> 8;
+                reslt_data[offset + 2] = ( pthc_argb.argb[1] * ptch_a + bckg_argb.argb[1] * (255 - ptch_a) ) >> 8;
+                reslt_data[offset + 3] = ( pthc_argb.argb[0] * ptch_a + bckg_argb.argb[0] * (255 - ptch_a) ) >> 8;
+            }
+        }
+        
     #endif 
 
     return reslt_data;
