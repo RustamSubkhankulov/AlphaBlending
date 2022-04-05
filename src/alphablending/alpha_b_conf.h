@@ -18,7 +18,7 @@ static const int Args_num = 6;
 
 #endif 
 
-#define OPT
+//#define OPT
 
 static const int Evaluations_number = 4096;
 

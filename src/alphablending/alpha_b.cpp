@@ -403,8 +403,8 @@ float _overlay_eval(sf::Image* backg, const unsigned char* patch_data,
 
     #else 
 
-        Color pthc_argb = { 0 };
-        Color bckg_argb = { 0 };
+        Color pthc_bgra = { 0 };
+        Color bckg_bgra = { 0 };
         
         for (int eval_ct = 0; eval_ct < Evaluations_number; eval_ct++)
         {
@@ -415,15 +415,20 @@ float _overlay_eval(sf::Image* backg, const unsigned char* patch_data,
 
                 for (; x < x_size; x++, offset += 4)
                 {
-                    pthc_argb.value = *( (unsigned int*) &patch_data[offset] ); 
-                    bckg_argb.value = *( (unsigned int*) &backg_data[offset] );
+                    pthc_bgra.value = *( (unsigned int*) &patch_data[offset] ); 
+                    bckg_bgra.value = *( (unsigned int*) &backg_data[offset] );
 
-                    unsigned char ptch_a = pthc_argb.argb[0];
+                    //printf("\n patch %x bgra %x %x %x %x ", pthc_bgra.value, pthc_bgra.bgra[0], pthc_bgra.bgra[1], pthc_bgra.bgra[2], pthc_bgra.bgra[3]);
+                    //printf("backg %x bgra %x %x %x %x \n", bckg_bgra.value, bckg_bgra.bgra[0], bckg_bgra.bgra[1], bckg_bgra.bgra[2], bckg_bgra.bgra[3]);
 
-                    reslt_data[offset + 0] = ( pthc_argb.argb[3] * ptch_a + bckg_argb.argb[3] * (255 - ptch_a) ) >> 8;
-                    reslt_data[offset + 1] = ( pthc_argb.argb[2] * ptch_a + bckg_argb.argb[2] * (255 - ptch_a) ) >> 8;
-                    reslt_data[offset + 2] = ( pthc_argb.argb[1] * ptch_a + bckg_argb.argb[1] * (255 - ptch_a) ) >> 8;
-                    reslt_data[offset + 3] = ( pthc_argb.argb[0] * ptch_a + bckg_argb.argb[0] * (255 - ptch_a) ) >> 8;
+                    unsigned char ptch_a = pthc_bgra.bgra[3];
+
+                    reslt_data[offset + 0] = ( pthc_bgra.bgra[0] * ptch_a + bckg_bgra.bgra[0] * (255 - ptch_a) ) >> 8;
+                    reslt_data[offset + 1] = ( pthc_bgra.bgra[1] * ptch_a + bckg_bgra.bgra[1] * (255 - ptch_a) ) >> 8;
+                    reslt_data[offset + 2] = ( pthc_bgra.bgra[2] * ptch_a + bckg_bgra.bgra[2] * (255 - ptch_a) ) >> 8;
+                    reslt_data[offset + 3] = ( pthc_bgra.bgra[3] * ptch_a + bckg_bgra.bgra[3] * (255 - ptch_a) ) >> 8;
+
+                    //printf(" reslt : 0: %x 1: %x 2: %x 3: %x \n", reslt_data[offset + 0], reslt_data[offset + 1], reslt_data[offset + 2], reslt_data[offset + 3]);
                 }
             }
         }       

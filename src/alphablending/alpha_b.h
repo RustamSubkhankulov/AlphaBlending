@@ -44,10 +44,10 @@
 
 //===============================================
 
-struct Color
+union Color
 {
     unsigned int value;
-    unsigned char argb[4];
+    unsigned char bgra[4];
 };
 
 //===============================================
