@@ -13,7 +13,7 @@ Configure
   If this <code>OPT</code> is defined, wll be used optimized version of calculating algotitm with SSE instuctions, using xmm registers
   Else will be used algorithm without any optimizations
   
-2. <code> static const int Evaluations_number = 100; </code> Number of times evaluations will be performed
+2. <code> static const int Evaluations_number = 4096; </code> Number of times evaluations will be performed
    Calculating is performed multiple times, so random error does not affect the results
 
 Using
@@ -35,7 +35,7 @@ Arguments:
 Controls
 --------
 
-Press 'T' to show time, spent on calclations
+Press 'T' to show time, spent on calculations
 
 Comparing
 ---------
